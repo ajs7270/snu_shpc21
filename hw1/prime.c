@@ -13,7 +13,7 @@ int main(){
 	for(int i=2; i<MAX_OF_NUM; i++){
 		if(primes[i] == 1){
 			for(int j = 2; i*j < MAX_OF_NUM; j++){
-				primes[i*j] == 0;
+				primes[i*j] = 0;
 			}
 		}
 	}
