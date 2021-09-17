@@ -7,6 +7,12 @@ void print_array(int a[], int n) {
   printf("\n");
 }
 
+void swap(int* x, int *y){
+  int temp = *x;
+  *x = *y;
+  *y = temp;
+}
+
 int main() {
   int n;
   scanf("%d", &n);
@@ -22,6 +28,13 @@ int main() {
      */
 
     // YOUR CODE HERE (~15 lines)
+    int min_index = i;
+    for(int j = i; j < n; ++j){
+	if (a[min_index] > a[j]){
+		min_index = j;
+	}
+    }
+    swap(&a[min_index],&a[i]); 
 
     print_array(a, n);
   }
