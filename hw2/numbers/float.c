@@ -5,6 +5,7 @@ int main() {
   float x;
   scanf("%f", &x);
 
+  // for Little Endian
   char * c = (char*)&x + sizeof(float) - 1;
 
   for (int i =0; i < sizeof(float); i++){
