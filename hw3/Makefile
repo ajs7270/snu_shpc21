@@ -24,4 +24,4 @@ validation: $(TARGET)
 	./$(TARGET) -v -t 56 816 304 352
 
 performance: $(TARGET)
-	./$(TARGET) -v -t 16 -w 3 -n 3 4096 4096 4096
+	./$(TARGET) -v -t 16 -w 1 -n 1 4096 4096 4096
