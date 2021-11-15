@@ -5,17 +5,15 @@
 
 #include "timer.h"
 
-//#define NUM_OF_INT 1024*1024*128
-#define NUM_OF_DOUBLE 10
+#define NUM_OF_DOUBLE 1024*1024*128
 
 static int mpi_rank, mpi_size;
 
 int main(int argc, char **argv) {
-	//int *data = (int*)malloc(NUM_OF_INT*sizeof(int)); // GB MB KB
-	double data[NUM_OF_DOUBLE];
-	int tag = 1001;
+  double *data = (double*)malloc(NUM_OF_DOUBLE*sizeof(double)); // GB MB KB
+  int tag = 1001;
 
-	MPI_Status status;
+  MPI_Status status;
 
   MPI_Init(&argc, &argv);
 
@@ -30,13 +28,18 @@ int main(int argc, char **argv) {
   MPI_Barrier(MPI_COMM_WORLD);
   timer_start(0);
   if (mpi_rank == 0) {
-    MPI_Send(data, NUM_OF_DOUBLE, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD);
-    // MPI_Recv...
+    for(int i=0; i<10; i++){
+      data[0] = i+1.0;
+      MPI_Send(data, NUM_OF_DOUBLE, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD);
+      MPI_Recv(data, NUM_OF_DOUBLE, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD, &status);
+    }
   }
   else if (mpi_rank == 1) {
-    MPI_Recv(data, NUM_OF_DOUBLE, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD, &status);
-    // MPI_Send...
-    // MPI_Recv...
+    for(int i=0; i<10; i++){
+      printf("%lf\n", data[0]);
+      MPI_Recv(data, NUM_OF_DOUBLE, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD, &status);
+      MPI_Send(data, NUM_OF_DOUBLE, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD);
+    }
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
