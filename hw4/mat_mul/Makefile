@@ -5,7 +5,7 @@ CC=mpicc
 CFLAGS=-std=c11 -O3 -Wall -fopenmp
 LDFLAGS=-lm
 
-SLURM_FLAGS=--nodes 2 --ntasks-per-node 1 --cpus-per-task=32 --partition=titan
+SLURM_FLAGS=--nodes 2 --ntasks-per-node 1 --cpus-per-task=32 --partition=shpc
 MPIRUN_FLAGS=--bind-to none --mca btl openib,self --mca btl_openib_allow_ib true
 
 all: $(TARGET)
