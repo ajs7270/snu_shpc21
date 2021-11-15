@@ -1,0 +1,40 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+CFLAGS	Makefile	/^CFLAGS=-std=c11 -O2 -fopenmp$/;"	m
+K	main.c	/^static int M = 16, N = 16, K = 16;$/;"	v	file:
+LDFLAGS	Makefile	/^LDFLAGS=-lm$/;"	m
+M	main.c	/^static int M = 16, N = 16, K = 16;$/;"	v	file:
+N	main.c	/^static int M = 16, N = 16, K = 16;$/;"	v	file:
+OBJECTS	Makefile	/^OBJECTS=timer.o util.o mat_mul.o$/;"	m
+TARGET	Makefile	/^TARGET=main$/;"	m
+TIMER_H	timer.h	2;"	d
+alloc_mat	util.c	/^void alloc_mat(float **m, int R, int C) {$/;"	f
+check_mat_mul	util.c	/^void check_mat_mul(float *C, float *C_ref, int M, int N, int K) {$/;"	f
+diff_with_current_time	timer.c	/^static double diff_with_current_time(struct timespec t) {$/;"	f	file:
+is_running	timer.c	/^  int is_running;$/;"	m	struct:timer_info	file:
+main	main.c	/^int main(int argc, char **argv) {$/;"	f
+mat_mul	mat_mul.c	/^void mat_mul(float *A, float *B, float *C, int M, int N, int K, int num_threads) {$/;"	f
+num_iterations	main.c	/^static int num_iterations = 1;$/;"	v	file:
+num_threads	main.c	/^static int num_threads = 1;$/;"	v	file:
+num_warmup	main.c	/^static int num_warmup = 0;$/;"	v	file:
+parse_opt	main.c	/^static void parse_opt(int argc, char **argv) {$/;"	f	file:
+print_help	main.c	/^static void print_help(const char* prog_name) {$/;"	f	file:
+print_mat	util.c	/^void print_mat(float *m, int R, int C) {$/;"	f
+print_matrix	main.c	/^static bool print_matrix = false;$/;"	v	file:
+rand_mat	util.c	/^void rand_mat(float *m, int R, int C) {$/;"	f
+start_time	timer.c	/^  struct timespec start_time;$/;"	m	struct:timer_info	typeref:struct:timer_info::timespec	file:
+ti	timer.c	/^static struct timer_info *ti;$/;"	v	typeref:struct:timer_info	file:
+timer_finalize	timer.c	/^void timer_finalize() {$/;"	f
+timer_info	timer.c	/^struct timer_info {$/;"	s	file:
+timer_init	timer.c	/^void timer_init(int n) {$/;"	f
+timer_read	timer.c	/^double timer_read(int idx) {$/;"	f
+timer_reset	timer.c	/^void timer_reset(int idx) {$/;"	f
+timer_start	timer.c	/^void timer_start(int idx) {$/;"	f
+timer_stop	timer.c	/^void timer_stop(int idx) {$/;"	f
+total_time	timer.c	/^  double total_time;$/;"	m	struct:timer_info	file:
+validation	main.c	/^static bool validation = false;$/;"	v	file:
+zero_mat	util.c	/^void zero_mat(float *m, int R, int C) {$/;"	f
