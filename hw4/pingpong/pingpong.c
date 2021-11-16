@@ -28,16 +28,17 @@ int main(int argc, char **argv) {
   MPI_Barrier(MPI_COMM_WORLD);
   timer_start(0);
   if (mpi_rank == 0) {
-    for(int i=0; i<10; i++){
+    for(int i=0; i<5; i++){
       data[0] = i+1.0;
+      printf("testing(send) : %lf\n", data[0]);
       MPI_Send(data, NUM_OF_DOUBLE, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD);
       MPI_Recv(data, NUM_OF_DOUBLE, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD, &status);
     }
   }
   else if (mpi_rank == 1) {
     for(int i=0; i<10; i++){
-      printf("%lf\n", data[0]);
       MPI_Recv(data, NUM_OF_DOUBLE, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD, &status);
+      printf("testing(receive) : %lf\n", data[0]);
       MPI_Send(data, NUM_OF_DOUBLE, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD);
     }
   }
