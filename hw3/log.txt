@@ -1,0 +1,80 @@
+Options:
+  Problem size: M = 4096, N = 4096, K = 4096
+  Number of threads: 64
+  Number of iterations: 1
+  Number of warmup iterations: 0
+  Print matrix: off
+  Validation: on
+
+Initializing... done!
+Calculating...(iter=0) 2.625434 sec
+Validating...
+Result: VALID
+Reference time: 2.106063 sec
+Reference throughput: 65.258722 GFLOPS
+Your Avg. time: 2.625434 sec
+Your Avg. throughput: 52.349040 GFLOPS
+Options:
+  Problem size: M = 4096, N = 4096, K = 4096
+  Number of threads: 64
+  Number of iterations: 1
+  Number of warmup iterations: 0
+  Print matrix: off
+  Validation: on
+
+Initializing... done!
+Calculating...(iter=0) 2.485964 sec
+Validating...
+Result: VALID
+Reference time: 2.123387 sec
+Reference throughput: 64.726278 GFLOPS
+Your Avg. time: 2.485964 sec
+Your Avg. throughput: 55.285974 GFLOPS
+Options:
+  Problem size: M = 4096, N = 4096, K = 4096
+  Number of threads: 64
+  Number of iterations: 1
+  Number of warmup iterations: 0
+  Print matrix: off
+  Validation: on
+
+Initializing... done!
+Calculating...(iter=0) 2.606595 sec
+Validating...
+Result: VALID
+Reference time: 2.178299 sec
+Reference throughput: 63.094625 GFLOPS
+Your Avg. time: 2.606595 sec
+Your Avg. throughput: 52.727396 GFLOPS
+Options:
+  Problem size: M = 4096, N = 4096, K = 4096
+  Number of threads: 64
+  Number of iterations: 1
+  Number of warmup iterations: 0
+  Print matrix: off
+  Validation: on
+
+Initializing... done!
+Calculating...(iter=0) 2.626386 sec
+Validating...
+Result: VALID
+Reference time: 2.121740 sec
+Reference throughput: 64.776542 GFLOPS
+Your Avg. time: 2.626386 sec
+Your Avg. throughput: 52.330069 GFLOPS
+Options:
+  Problem size: M = 4096, N = 4096, K = 4096
+  Number of threads: 64
+  Number of iterations: 1
+  Number of warmup iterations: 0
+  Print matrix: off
+  Validation: on
+
+Initializing... done!
+Calculating...(iter=0) 2.495943 sec
+Validating...
+Result: VALID
+Reference time: 2.060178 sec
+Reference throughput: 66.712160 GFLOPS
+Your Avg. time: 2.495943 sec
+Your Avg. throughput: 55.064932 GFLOPS
