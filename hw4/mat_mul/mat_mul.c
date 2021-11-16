@@ -31,10 +31,8 @@ void mat_mul(float *A, float *B, float *C, int M, int N, int K) {
    *****************************************************/
 
   if (mpi_rank == 0) {
-    for (int i = 1; i < mpi_size; ++i) {
-      MPI_Send(A, M * K / 2, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
-      MPI_Send(B, K * N, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
-    }
+    MPI_Send(A, M * K / 2, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
+    MPI_Send(B, K * N, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
   } else {
     MPI_Recv(A_part, M * K / 2, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, NULL);
     MPI_Recv(B_copy, K * N, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, NULL);
@@ -43,45 +41,45 @@ void mat_mul(float *A, float *B, float *C, int M, int N, int K) {
   // Hmm... Let's just calculate WHOLE matrix in ALL processes.
   if (mpi_rank == 0) {
     #pragma omp parallel for
-		for(int i = M/2; i < M; ++i){
-			for(int j = 0; j < N; ++j){
-				C[i * N + j] = 0;
-			}
-		}
+    for(int i = M/2; i < M; ++i){
+      for(int j = 0; j < N; ++j){
+        C[i * N + j] = 0;
+      }
+    }
 
     #pragma omp parallel for
     for (int i = M/2; i < M; i+=2) {
       for (int k = 0; k < K; ++k) {
-				float a0 = A[(i + 0) * K + k];
-				float a1 = A[(i + 1) * K + k];
-      	for (int j = 0; j < N; ++j) {
-					float b = B[k * N + j];
-					float c0 = C[(i + 0) * N + j];
-					float c1 = C[(i + 1) * N + j];
-					C[(i + 0) * N + j] = a0 * b + c0;
-					C[(i + 1) * N + j] = a1 * b + c1;
+        float a0 = A[(i + 0) * K + k];
+	float a1 = A[(i + 1) * K + k];
+      for (int j = 0; j < N; ++j) {
+	float b = B[k * N + j];
+	float c0 = C[(i + 0) * N + j];
+	float c1 = C[(i + 1) * N + j];
+	C[(i + 0) * N + j] = a0 * b + c0;
+	C[(i + 1) * N + j] = a1 * b + c1;
         }
       }
     }
   } else {
-		#pragma omp parallel for
-		for(int i = 0; i < M/2; ++i){
-			for(int j = 0; j < N; ++j){
-				C_part[i * N + j] = 0;
-			}
-		}
+    #pragma omp parallel for
+    for(int i = 0; i < M/2; ++i){
+      for(int j = 0; j < N; ++j){
+        C_part[i * N + j] = 0;
+      }
+    }
 
-		#pragma omp parallel for
+    #pragma omp parallel for
     for (int i = 0; i < M/2; i+=2) {
       for (int k = 0; k < K; ++k) {
-				float a0 = A_part[(i + 0) * K + k];
-				float a1 = A_part[(i + 1) * K + k];
+ 	float a0 = A_part[(i + 0) * K + k];
+	float a1 = A_part[(i + 1) * K + k];
       	for (int j = 0; j < N; ++j) {
-					float b = B_copy[k * N + j];
-					float c0 = C_part[(i + 0) * N + j];
-					float c1 = C_part[(i + 1) * N + j];
-					C_part[(i + 0) * N + j] = a0 * b + c0;
-					C_part[(i + 1) * N + j] = a1 * b + c1;
+          float b = B_copy[k * N + j];
+	  float c0 = C_part[(i + 0) * N + j];
+	  float c1 = C_part[(i + 1) * N + j];
+	  C_part[(i + 0) * N + j] = a0 * b + c0;
+	  C_part[(i + 1) * N + j] = a1 * b + c1;
         }
       }
     }
