@@ -76,9 +76,9 @@ void mat_mul(float *A, float *B, float *C, int M, int N, int K) {
   cl_int err;
 
   // Matrix A and B is currently on CPU. Send them to GPU.
-  err = clEnqueueWriteBuffer(queue, gpu_mem_A, CL_TRUE, 0, M * K * sizeof(float), A, 0, NULL, NULL);
+  err = clEnqueueWriteBuffer(queue, gpu_mem_A, CL_FALSE, 0, M * K * sizeof(float), A, 0, NULL, NULL);
   CHECK_OPENCL(err);
-  err = clEnqueueWriteBuffer(queue, gpu_mem_B, CL_TRUE, 0, K * N * sizeof(float), B, 0, NULL, NULL);
+  err = clEnqueueWriteBuffer(queue, gpu_mem_B, CL_FALSE, 0, K * N * sizeof(float), B, 0, NULL, NULL);
   CHECK_OPENCL(err);
 
   // Setup kernel arguments
@@ -88,15 +88,14 @@ void mat_mul(float *A, float *B, float *C, int M, int N, int K) {
   CHECK_OPENCL(err);
   err = clSetKernelArg(kernel, 2, sizeof(cl_mem), &gpu_mem_C);
   CHECK_OPENCL(err);
-  err = clSetKernelArg(kernel, 3, sizeof(int), &M);
-  CHECK_OPENCL(err);
+  err = clSetKernelArg(kernel, 3, sizeof(int), &M); CHECK_OPENCL(err);
   err = clSetKernelArg(kernel, 4, sizeof(int), &N);
   CHECK_OPENCL(err);
   err = clSetKernelArg(kernel, 5, sizeof(int), &K);
   CHECK_OPENCL(err);
 
   // Setup OpenCL global work size and local work size
-  size_t gws[2] = {M, N}, lws[2] = {1, 1};
+  size_t gws[2] = {M, N}, lws[2] = {8, 8};
   for (int i = 0; i < 2; ++i) {
     /*
      * By OpenCL spec, global work size should be MULTIPLE of local work size. The formula below achieves it.
