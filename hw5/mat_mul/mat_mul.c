@@ -95,7 +95,7 @@ void mat_mul(float *A, float *B, float *C, int M, int N, int K) {
   CHECK_OPENCL(err);
 
   // Setup OpenCL global work size and local work size
-  size_t gws[2] = {M, N}, lws[2] = {8, 8};
+  size_t gws[2] = {M, N}, lws[2] = {2, 64};
   for (int i = 0; i < 2; ++i) {
     /*
      * By OpenCL spec, global work size should be MULTIPLE of local work size. The formula below achieves it.
