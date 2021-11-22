@@ -16,7 +16,7 @@ void print_platform_info(cl_platform_id platform);
 
 void print_device_info(cl_device_id device);
 
-cl_program create_and_build_program_with_source(cl_context context, cl_device_id device, const char *file_name);
+cl_program create_and_build_program_with_source(cl_context context,int num_of_dev, cl_device_id* device, const char *file_name);
 
 
 

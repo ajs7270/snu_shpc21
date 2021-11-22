@@ -43,9 +43,10 @@ int main(int argc, char **argv) {
   double elapsed_time_normio = timer_read(0);
   printf("Elapsed time using normal I/O: %f sec\n", elapsed_time_normio);
 
+  /*
   double elapsed_time_vecio = timer_read(1);
   printf("Elapsed time using vector I/O: %f sec\n", elapsed_time_vecio);
-
+  */
   printf("Finalizing...\n");
   vec_add_finalize();
   printf("Finalizing done!\n");

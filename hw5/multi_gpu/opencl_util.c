@@ -22,7 +22,7 @@ void print_device_info(cl_device_id device) {
   free(buf);
 }
 
-cl_program create_and_build_program_with_source(cl_context context, cl_device_id device, const char *file_name) {
+cl_program create_and_build_program_with_source(cl_context context, int num_of_dev, cl_device_id* device, const char *file_name) {
   cl_int err;
 
   FILE *file = fopen(file_name, "rb");
@@ -46,7 +46,7 @@ cl_program create_and_build_program_with_source(cl_context context, cl_device_id
   CHECK_OPENCL(err);
   free(source_code);
 
-  err = clBuildProgram(program, 1, &device, "", NULL, NULL);
+  err = clBuildProgram(program, num_of_dev, device, "", NULL, NULL);
   if (err == CL_BUILD_PROGRAM_FAILURE) {
     size_t log_size;
     CHECK_OPENCL(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size));

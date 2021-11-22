@@ -4,16 +4,19 @@
 #include "util.h"
 #include "opencl_util.h"
 
+#define MAX_DEV 4
+
 static cl_platform_id platform;
-static cl_device_id device;
+static cl_device_id device[MAX_DEV];
 static cl_context context;
-static cl_command_queue queue;
+static cl_command_queue queue[MAX_DEV];
 static cl_program program;
-static cl_kernel kernel_normio;
-static cl_kernel kernel_vecio;
-static cl_mem gpu_mem_A;
-static cl_mem gpu_mem_B;
-static cl_mem gpu_mem_C;
+static cl_kernel kernel_normio[MAX_DEV];
+//static cl_kernel kernel_vecio[MAX_DEV];
+static cl_mem gpu_mem_A[MAX_DEV];
+static cl_mem gpu_mem_B[MAX_DEV];
+static cl_mem gpu_mem_C[MAX_DEV];
+static unsigned int ndev = MAX_DEV;
 
 void vec_add_init(int N) {
   cl_int err;
@@ -23,114 +26,156 @@ void vec_add_init(int N) {
   CHECK_OPENCL(err);
   print_platform_info(platform);
 
-  // Get OpenCL device
-  err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+  // Get num of device
+  err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL,(unsigned int*) &ndev);
   CHECK_OPENCL(err);
-  print_device_info(device);
+
+  // Get OpenCL device
+  err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, ndev, device, NULL);
+  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    print_device_info(device[i]);
+  }
 
   // Create OpenCL context
-  context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
+  context = clCreateContext(NULL, ndev, device, NULL, NULL, &err);
   CHECK_OPENCL(err);
 
   // Create OpenCL command queue
-  queue = clCreateCommandQueue(context, device, 0, &err);
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    queue[i] = clCreateCommandQueue(context, device[i], 0, &err);
+    CHECK_OPENCL(err);
+  }
 
   /*
    * Compile OpenCL program from "kernel.cl.c"
    * The name of kernel file is usually "kernel.cl",
    * but appending ".c" to the end of the filename helps text editors' syntax-highlighting.
    */
-  program = create_and_build_program_with_source(context, device, "kernel.cl.c");
+  program = create_and_build_program_with_source(context, ndev, device, "kernel.cl.c");
 
-  kernel_normio = clCreateKernel(program, "vec_add_normal_io", &err); 
-  CHECK_OPENCL(err);
-  kernel_vecio = clCreateKernel(program, "vec_add_vector_io", &err); 
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    kernel_normio[i] = clCreateKernel(program, "vec_add_normal_io", &err); 
+    CHECK_OPENCL(err);
+   // kernel_vecio[i] = clCreateKernel(program, "vec_add_vector_io", &err); 
+   // CHECK_OPENCL(err);
+  }
 
   // Create GPU buffers for vectors
-  gpu_mem_A = clCreateBuffer(context, CL_MEM_READ_WRITE, N * sizeof(float), NULL, &err);
-  CHECK_OPENCL(err);
-  gpu_mem_B = clCreateBuffer(context, CL_MEM_READ_WRITE, N * sizeof(float), NULL, &err);
-  CHECK_OPENCL(err);
-  gpu_mem_C = clCreateBuffer(context, CL_MEM_READ_WRITE, N * sizeof(float), NULL, &err);
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    gpu_mem_A[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, N * sizeof(float)/ndev, NULL, &err);
+    CHECK_OPENCL(err);
+    gpu_mem_B[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, N * sizeof(float)/ndev, NULL, &err);
+    CHECK_OPENCL(err);
+    gpu_mem_C[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, N * sizeof(float)/ndev, NULL, &err);
+    CHECK_OPENCL(err);
+  }
 
-  err = clFinish(queue);
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    err = clFinish(queue[i]);
+    CHECK_OPENCL(err);
+  }
 }
 
 void vec_add_finalize() {
   // Free all resources we allocated
-  clReleaseMemObject(gpu_mem_A);
-  clReleaseMemObject(gpu_mem_B);
-  clReleaseMemObject(gpu_mem_C);
-  clReleaseKernel(kernel_normio);
-  clReleaseKernel(kernel_vecio);
+  printf("ajs: pass %d\n", __LINE__);
+  for(int i = 0; i < ndev; i++){
+    clReleaseMemObject(gpu_mem_A[i]);
+    clReleaseMemObject(gpu_mem_B[i]);
+    clReleaseMemObject(gpu_mem_C[i]);
+    clReleaseKernel(kernel_normio[i]);
+    //clReleaseKernel(kernel_vecio[i]);
+    clReleaseCommandQueue(queue[i]);
+  }
+  printf("ajs: pass %d\n", __LINE__);
   clReleaseProgram(program);
-  clReleaseCommandQueue(queue);
   clReleaseContext(context);
+  printf("ajs: pass %d\n", __LINE__);
 }
 
 void vec_add(float *A, float *B, float *C, int N) {
   cl_int err;
 
-  // Vector A and B is currently on CPU. Send them to GPU.
-  err = clEnqueueWriteBuffer(queue, gpu_mem_A, CL_TRUE, 0, N * sizeof(float), A, 0, NULL, NULL);
-  CHECK_OPENCL(err);
-  err = clEnqueueWriteBuffer(queue, gpu_mem_B, CL_TRUE, 0, N * sizeof(float), B, 0, NULL, NULL);
-  CHECK_OPENCL(err);
-
+  printf("ajs: pass %d\n", __LINE__);
   // Setup kernel arguments
-  err = clSetKernelArg(kernel_normio, 0, sizeof(cl_mem), &gpu_mem_A);
-  CHECK_OPENCL(err);
-  err = clSetKernelArg(kernel_normio, 1, sizeof(cl_mem), &gpu_mem_B);
-  CHECK_OPENCL(err);
-  err = clSetKernelArg(kernel_normio, 2, sizeof(cl_mem), &gpu_mem_C);
-  CHECK_OPENCL(err);
-  err = clSetKernelArg(kernel_normio, 3, sizeof(int), &N);
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    err = clSetKernelArg(kernel_normio[i], 0, sizeof(cl_mem), &gpu_mem_A[i]);
+    CHECK_OPENCL(err);
+    err = clSetKernelArg(kernel_normio[i], 1, sizeof(cl_mem), &gpu_mem_B[i]);
+    CHECK_OPENCL(err);
+    err = clSetKernelArg(kernel_normio[i], 2, sizeof(cl_mem), &gpu_mem_C[i]);
+    CHECK_OPENCL(err);
 
-  err = clSetKernelArg(kernel_vecio, 0, sizeof(cl_mem), &gpu_mem_A);
-  CHECK_OPENCL(err);
-  err = clSetKernelArg(kernel_vecio, 1, sizeof(cl_mem), &gpu_mem_B);
-  CHECK_OPENCL(err);
-  err = clSetKernelArg(kernel_vecio, 2, sizeof(cl_mem), &gpu_mem_C);
-  CHECK_OPENCL(err);
-  err = clSetKernelArg(kernel_vecio, 3, sizeof(int), &N);
-  CHECK_OPENCL(err);
+    /*
+    err = clSetKernelArg(kernel_vecio[i], 0, sizeof(cl_mem), &gpu_mem_A[i]);
+    CHECK_OPENCL(err);
+    err = clSetKernelArg(kernel_vecio[i], 1, sizeof(cl_mem), &gpu_mem_B[i]);
+    CHECK_OPENCL(err);
+    err = clSetKernelArg(kernel_vecio[i], 2, sizeof(cl_mem), &gpu_mem_C[i]);
+    CHECK_OPENCL(err);
+    err = clSetKernelArg(kernel_vecio[i], 3, sizeof(int), &N);
+    CHECK_OPENCL(err);
+    */
+  }
+
+  // Vector A and B is currently on CPU. Send them to GPU.
+  for(int i = 0; i < ndev; i++){
+    err = clEnqueueWriteBuffer(queue[i], gpu_mem_A[i], CL_TRUE, 0, N * sizeof(float)/ndev,
+		    (void*)((size_t)A + (N/ndev)*i), 0, NULL, NULL);
+    CHECK_OPENCL(err);
+    err = clEnqueueWriteBuffer(queue[i], gpu_mem_B[i], CL_TRUE, 0, N * sizeof(float)/ndev,
+		    (void*)((size_t)B + (N/ndev)*i), 0, NULL, NULL);
+    CHECK_OPENCL(err);
+  }
 
   // Setup OpenCL global work size and local work size
-  size_t gws[1] = {N/16}, lws[1] = {128};
+  size_t gws[1] = {N/ndev}, lws[1] = {128};
   for (int i = 0; i < 1; ++i) {
     gws[i] = (gws[i] + lws[i] - 1) / lws[i] * lws[i];
   }
 
   // warm up
-  err = clEnqueueNDRangeKernel(queue, kernel_normio, 1, NULL, gws, lws, 0, NULL, NULL);
-  CHECK_OPENCL(err);
-  err = clFinish(queue);
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    err = clEnqueueNDRangeKernel(queue[i], kernel_normio[i], 1, NULL, gws, lws, 0, NULL, NULL);
+    CHECK_OPENCL(err);
+  }
+
+  for(int i = 0; i < ndev; i++){
+    err = clFinish(queue[i]);
+    CHECK_OPENCL(err);
+  }
 
   // Run kernels
   timer_start(0);
-  err = clEnqueueNDRangeKernel(queue, kernel_normio, 1, NULL, gws, lws, 0, NULL, NULL);
-  CHECK_OPENCL(err);
-  err = clFinish(queue);
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    err = clEnqueueNDRangeKernel(queue[i], kernel_normio[i], 1, NULL, gws, lws, 0, NULL, NULL);
+    CHECK_OPENCL(err);
+  }
+
+  for(int i = 0; i < ndev; i++){
+    err = clFinish(queue[i]);
+    CHECK_OPENCL(err);
+  }
   timer_stop(0);
 
+  /*
   timer_start(1);
   err = clEnqueueNDRangeKernel(queue, kernel_vecio, 1, NULL, gws, lws, 0, NULL, NULL);
   CHECK_OPENCL(err);
   err = clFinish(queue);
   CHECK_OPENCL(err);
   timer_stop(1);
+  */
 
   // After running kernel, result resides in gpu_mem_C. Send it back to CPU.
-  err = clEnqueueReadBuffer(queue, gpu_mem_C, CL_TRUE, 0, N * sizeof(float), C, 0, NULL, NULL);
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    err = clEnqueueReadBuffer(queue[i], gpu_mem_C[i], CL_TRUE, 0, N * sizeof(float)/ndev, (void*)((size_t)C + (N/ndev)*i), 0, NULL, NULL);
+    CHECK_OPENCL(err);
+  }
 
-  err = clFinish(queue);
-  CHECK_OPENCL(err);
+  for(int i = 0; i < ndev; i++){
+    err = clFinish(queue[i]);
+    CHECK_OPENCL(err);
+  }
 }
