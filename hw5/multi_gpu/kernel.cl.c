@@ -1,13 +1,10 @@
 __kernel void vec_add_normal_io(__global float *A,
                                 __global float *B,
-                                __global float *C,
-                                int N) {
-  int i = get_global_id(0) * 16;
-  if (i >= N) return;
+                                __global float *C
+                                ) {
+  int i = get_global_id(0);
 
-  for (int j = 0; j < 16; ++j) {
-    C[i+j] = A[i+j] + B[i+j];
-  }
+  C[i] = A[i] + B[i];
 }
 
 __kernel void vec_add_vector_io(__global float *A,
