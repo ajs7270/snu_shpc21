@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
 
   double elapsed_time_normio = timer_read(0);
   printf("Elapsed time using normal I/O: %f sec\n", elapsed_time_normio);
+  printf("Reference throughput: %f GFLOPS\n", 2.0 * N / elapsed_time_normio / 1e9);
 
   /*
   double elapsed_time_vecio = timer_read(1);
