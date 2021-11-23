@@ -33,3 +33,5 @@ validation: $(TARGET)
 
 performance: $(TARGET)
 	salloc $(SLURM_FLAGS) mpirun ./$(TARGET) -v -w 1 -n 1 8192 8192 8192
+test: $(TARGET)
+	salloc $(SLURM_FLAGS) mpirun ./$(TARGET) -v -w 1 -n 1 4096 4096 4096
