@@ -79,7 +79,6 @@ void vec_add_init(int N) {
 
 void vec_add_finalize() {
   // Free all resources we allocated
-  printf("ajs: pass %d\n", __LINE__);
   for(int i = 0; i < ndev; i++){
     clReleaseMemObject(gpu_mem_A[i]);
     clReleaseMemObject(gpu_mem_B[i]);
@@ -88,16 +87,13 @@ void vec_add_finalize() {
     //clReleaseKernel(kernel_vecio[i]);
     clReleaseCommandQueue(queue[i]);
   }
-  printf("ajs: pass %d\n", __LINE__);
   clReleaseProgram(program);
   clReleaseContext(context);
-  printf("ajs: pass %d\n", __LINE__);
 }
 
 void vec_add(float *A, float *B, float *C, int N) {
   cl_int err;
 
-  printf("ajs: pass %d\n", __LINE__);
   // Setup kernel arguments
   for(int i = 0; i < ndev; i++){
     err = clSetKernelArg(kernel_normio[i], 0, sizeof(cl_mem), &gpu_mem_A[i]);
