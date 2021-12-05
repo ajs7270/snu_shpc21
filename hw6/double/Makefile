@@ -5,7 +5,7 @@ CC=mpicc
 CFLAGS=-std=c11 -O3 -Wall -fopenmp
 LDLIBS=-lm
 
-SLURM_FLAGS=--nodes=1 --ntasks-per-node=1 --cpus-per-task=16 --gres=gpu:1 --partition=shpc
+SLURM_FLAGS=--nodes=2 --ntasks-per-node=1 --cpus-per-task=16 --gres=gpu:1 --partition=shpc
 
 # CUDA settings
 OBJECTS+=cuda_util.o
@@ -24,4 +24,10 @@ clean:
 	rm -rf $(TARGET) $(OBJECTS)
 
 test: $(TARGET)
-	salloc $(SLURM_FLAGS) mpirun ./$(TARGET) 209715200
+	salloc $(SLURM_FLAGS) mpirun ./$(TARGET) 400000000
+
+nsys : $(TARGET)
+	salloc $(SLURM_FLAGS) mpirun $(NSYS) profile ./$(TARGET) 400000000
+
+ncu : $(TARGET)
+	salloc $(SLURM_FLAGS) mpirun $(NCU) -o profile ./$(TARGET) 400000000
