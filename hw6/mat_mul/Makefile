@@ -4,6 +4,8 @@ OBJECTS=timer.o util.o mat_mul.o
 CC=gcc
 CFLAGS=-std=c11 -O3 -Wall -fopenmp
 LDLIBS=-lm
+NSYS=/usr/local/cuda/bin/nsys
+NCU=/usr/local/cuda/bin/ncu
 
 SLURM_FLAGS=--nodes=1 --ntasks-per-node=1 --cpus-per-task=32 --gres=gpu:1 --partition=shpc
 
@@ -21,7 +23,7 @@ mat_mul.o: mat_mul.cu
 	/usr/local/cuda/bin/nvcc -c -o $@ $^
 
 clean:
-	rm -rf $(TARGET) $(OBJECTS)
+	rm -rf $(TARGET) $(OBJECTS) *.ncu-rep *.qdrep
 
 validation: $(TARGET)
 	salloc $(SLURM_FLAGS) mpirun ./$(TARGET) -v 896 1536 640
@@ -37,3 +39,9 @@ validation: $(TARGET)
 
 performance: $(TARGET)
 	salloc $(SLURM_FLAGS) mpirun ./$(TARGET) -v -w 1 -n 1 8192 8192 8192
+
+nsys :
+	salloc $(SLURM_FLAGS) mpirun $(NSYS) profile ./$(TARGET) -v -w 1 -n 1 8192 8192 8192
+
+ncu :
+	salloc $(SLURM_FLAGS) mpirun $(NCU) -o profile ./$(TARGET) -v -w 1 -n 1 8192 8192 8192
