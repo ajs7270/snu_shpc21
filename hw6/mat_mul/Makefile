@@ -40,8 +40,8 @@ validation: $(TARGET)
 performance: $(TARGET)
 	salloc $(SLURM_FLAGS) mpirun ./$(TARGET) -v -w 1 -n 1 8192 8192 8192
 
-nsys :
-	salloc $(SLURM_FLAGS) mpirun $(NSYS) profile ./$(TARGET) -v -w 1 -n 1 8192 8192 8192
+nsys : $(TARGET)
+	salloc $(SLURM_FLAGS) mpirun $(NSYS) profile ./$(TARGET) -n 1 8192 8192 8192
 
-ncu :
-	salloc $(SLURM_FLAGS) mpirun $(NCU) -o profile ./$(TARGET) -v -w 1 -n 1 8192 8192 8192
+ncu : $(TARGET)
+	salloc $(SLURM_FLAGS) mpirun $(NCU) -o profile ./$(TARGET) -n 1 8192 8192 8192
