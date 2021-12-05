@@ -13,10 +13,11 @@ __global__ void sgemm(float* A, float* B, float* C, int M, int N, int K) {
   int j = blockDim.y * blockIdx.y + threadIdx.y;
   if (i >= M || j >= N) return;
 
-  C[i * N + j] = 0;
+  float s = 0;
   for (int k = 0; k < K; ++k) {
-    C[i * N + j] += A[i * K + k] * B[k * N + j];
+    s += A[i * K + k] * B[k * N + j];
   }
+  C[i * N + j] = s;
 }
 
 void mat_mul_init(int M, int N, int K) {
@@ -44,7 +45,7 @@ void mat_mul(float *A, float *B, float *C, int M, int N, int K) {
   CHECK_CUDA(cudaMemcpy(gpu_mem_B, B, K * N * sizeof(float), cudaMemcpyHostToDevice));
 
   // Setup global work size and local work size
-  dim3 blockDim(1, 1, 1);
+  dim3 blockDim(1, 32, 1);
   dim3 gridDim(M, N, 1);
 
   // Run kernel
