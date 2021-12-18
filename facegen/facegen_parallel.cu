@@ -95,6 +95,29 @@ static void tconv(float *in, float *out, float *weight, float *bias, int H_IN, i
 }
 
 void facegen_init() {
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+	for(int i = 0; i < NUM_OF_FEATURE_MAP; i++){
+		streamSize[i] = (featureMapSize[i] / mpi_size) / NUM_OF_BUFFER;
+		streamBytes[i] = streamSize[i] * sizeof(float);
+	}
+
+	for(int i = 0; i < NUM_OF_BUFFER; i++){
+    CHECK_CUDA(cudaMalloc(&gpu_fm0[i], streamBytes[0]));
+    CHECK_CUDA(cudaMalloc(&gpu_fm1[i], streamBytes[1]));
+    CHECK_CUDA(cudaMalloc(&gpu_fm2[i], streamBytes[2]));
+    CHECK_CUDA(cudaMalloc(&gpu_fm3[i], streamBytes[3]));
+  }
+
+  for(int i = 0; i < NUM_OF_STREAM; i++){
+    CHECK_CUDA(cudaStreamCreate(&stream[i]));
+  }
+
+  CHECK_CUDA(cudaDeviceSynchronize());
+  for(int i = 0; i < NUM_OF_STREAM; i++){
+    CHECK_CUDA(cudaStreamSynchronize(stream[i]));
+  }
 }
 
 void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
