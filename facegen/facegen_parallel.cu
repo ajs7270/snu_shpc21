@@ -127,6 +127,10 @@ void facegen_init() {
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
+    int device_count;
+    cudaGetDeviceCount(&device_count);
+    cudaSetDevice(mpi_rank % device_count);
+
     // for non-blocking mpi send, receive
     nstatus = (MPI_Status *)malloc(mpi_size * sizeof(MPI_Status));
     nrequest = (MPI_Request *)malloc(mpi_size * sizeof(MPI_Request));
