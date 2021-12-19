@@ -284,4 +284,18 @@ void facegen_fin() {
     /*
      * Finalize required CUDA objects. For example,
      */
+    for(int i = 0; i < NUM_OF_BUFFER; i++){
+        CHECK_CUDA(cudaFree(gpu_inputs[i]));
+        CHECK_CUDA(cudaFree(gpu_outputs[i]));
+    }
+
+    for(int i = 0; i < NUM_OF_FEATURE_MAP; i++){
+        CHECK_CUDA(cudaFree(gpu_fm[i]));
+    }
+
+    for(int i = 0; i < NUM_OF_STREAM; i++){
+        CHECK_CUDA(cudaStreamDestroy(stream[i]));
+    }
+
+
 }
