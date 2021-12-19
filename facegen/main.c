@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <mpi.h>
 
 #include "timer.h"
 #include "qdbmp.h"
@@ -8,6 +9,7 @@
 
 const int NETWORK_SIZE_IN_BYTES = 20549132;
 static int mpi_rank, mpi_size;
+int num_to_gen;
 
 // read network binary
 float* read_network(char *fn) {
@@ -106,6 +108,7 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
+    float *network, *inputs, *outputs;
     if (mpi_rank == 0 ) {
         if (argc != 5) {
             fprintf(stderr, "Usage: %s <network binary> <input data> <output data> <output image>\n", argv[0]);
@@ -113,10 +116,21 @@ int main(int argc, char **argv) {
             exit(EXIT_FAILURE);
         }
 
-        int num_to_gen;
-        float *network = read_network(argv[1]);
-        float *inputs = read_inputs(argv[2], &num_to_gen);
-        float *outputs = (float*)malloc(num_to_gen * 64 * 64 * 3 *sizeof(float));
+        network = read_network(argv[1]);
+        inputs = read_inputs(argv[2], &num_to_gen);
+        outputs = (float*)malloc(num_to_gen * 64 * 64 * 3 *sizeof(float));
+        
+        for(int i = 1; i< mpi_size; i++){
+            MPI_Send(&num_to_gen, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            MPI_Send(network, NETWORK_SIZE_IN_BYTES / sizeof(float), MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+        }
+    }else{
+        network = (float*)malloc(NETWORK_SIZE_IN_BYTES);
+        MPI_Recv(network, NETWORK_SIZE_IN_BYTES / sizeof(float), MPI_FLOAT, 0, 0, MPI_COMM_WORLD, NULL);
+
+        MPI_Recv(&num_to_gen, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, NULL);
+        inputs = (float*)malloc((num_to_gen / mpi_size) * 100 * sizeof(float));
+        outputs = (float*)malloc((num_to_gen / mpi_size) * 64 * 64 * 3 *sizeof(float));
     }
 
     MPI_Barrier(MPI_COMM_WORLD);

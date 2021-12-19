@@ -1,3 +1,5 @@
+#include <mpi.h>
+
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,21 +19,36 @@
  * Define global variables here.
  */
 
-// for double buffering
-#define NUM_OF_BUFFER 1
-#define NUM_OF_STREAM 1
-#define NUM_OF_FEATURE_MAP	4
+// for computation communication overlapping
+#define NUM_OF_BUFFER 2 // for double buffering
+#define NUM_OF_STREAM 3 
+#define NUM_OF_FEATURE_MAP 4
 
-const int NETWORK_SIZE_IN_BYTES = 20549132;
+extern const int NETWORK_SIZE_IN_BYTES;
+extern int num_to_gen;
+
+int num_to_gen_per_node;
+
+// for MPI
 static int mpi_rank, mpi_size;
-static int streamSize[NUM_OF_FEATURE_MAP];
-static int streamBytes[NUM_OF_FEATURE_MAP];
-static int featureMapSize[NUM_OF_FEATURE_MAP] = {4*4*512, 8*8*256, 16*16*128, 32*32*64}
+static MPI_Request request;
+static MPI_Request* nrequest;
+static MPI_Status status;
+static MPI_Status* nstatus;
 
-static float* gpu_fm0[NUM_OF_BUFFER];
-static float* gpu_fm1[NUM_OF_BUFFER];
-static float* gpu_fm2[NUM_OF_BUFFER];
-static float* gpu_fm3[NUM_OF_BUFFER];
+// for CUDA Stream
+static int inputStreamSize; 
+static int inputStreamBytes;
+static int outputStreamSize; 
+static int outputStreamBytes;
+static int featureMapSize[NUM_OF_FEATURE_MAP] = {4*4*512, 8*8*256, 16*16*128, 32*32*64};
+static cudaStream_t stream[NUM_OF_STREAM];
+
+// GPU Memory pointer
+static float* gpu_inputs[NUM_OF_BUFFER]; // for double buffering 
+static float* gpu_outputs[NUM_OF_BUFFER];
+static float* gpu_network;
+static float* gpu_fm[NUM_OF_FEATURE_MAP];
 
 static void proj(float *in, float *out, float *weight, float *bias, int C, int K) {
   for (int k = 0; k < K; ++k) {
@@ -98,22 +115,39 @@ void facegen_init() {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-	for(int i = 0; i < NUM_OF_FEATURE_MAP; i++){
-		streamSize[i] = (featureMapSize[i] / mpi_size) / NUM_OF_BUFFER;
-		streamBytes[i] = streamSize[i] * sizeof(float);
+	num_to_gen_per_node = num_to_gen / mpi_size;
+
+	// because num_to_gen_per_node can be fraction
+	if (mpi_rank == 0){
+		num_to_gen_per_node = num_to_gen - (num_to_gen_per_node * (mpi_size - 1));
 	}
 
-	for(int i = 0; i < NUM_OF_BUFFER; i++){
-    CHECK_CUDA(cudaMalloc(&gpu_fm0[i], streamBytes[0]));
-    CHECK_CUDA(cudaMalloc(&gpu_fm1[i], streamBytes[1]));
-    CHECK_CUDA(cudaMalloc(&gpu_fm2[i], streamBytes[2]));
-    CHECK_CUDA(cudaMalloc(&gpu_fm3[i], streamBytes[3]));
-  }
+	// for double buffering
+	inputStreamSize =  100;
+	inputStreamBytes = inputStreamSize * sizeof(float);
+	outputStreamSize = 64 * 64 * 3;
+	outputStreamBytes = outputStreamSize * sizeof(float);
 
-  for(int i = 0; i < NUM_OF_STREAM; i++){
+	// allocate input, output memory in the GPU
+	for (int i = 0; i < NUM_OF_BUFFER; i++){
+	  CHECK_CUDA(cudaMalloc(&gpu_inputs[i], inputStreamBytes));
+	  CHECK_CUDA(cudaMalloc(&gpu_outputs[i], outputStreamBytes));
+	}
+	
+	// allocate network memroy in the GPU
+	CHECK_CUDA(cudaMalloc(&gpu_network, NETWORK_SIZE_IN_BYTES));
+
+	// allocate feature map memroy in the GPU
+	for(int i = 0; i < NUM_OF_FEATURE_MAP; i++){
+	  CHECK_CUDA(cudaMalloc(&gpu_fm[i], featureMapSize[i]*sizeof(float)));
+	}
+
+	// create stream
+	for(int i = 0; i < NUM_OF_STREAM; i++){
     CHECK_CUDA(cudaStreamCreate(&stream[i]));
   }
 
+	// synchronize
   CHECK_CUDA(cudaDeviceSynchronize());
   for(int i = 0; i < NUM_OF_STREAM; i++){
     CHECK_CUDA(cudaStreamSynchronize(stream[i]));
@@ -122,11 +156,6 @@ void facegen_init() {
 
 void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
   /*
-   * TODO
-   * Implement facegen computation here.
-   * See "facegen_seq.c" if you don't know what to do.
-   *
-   * Below functions should be implemented in here:
    * Host-to-devie memory copy,
    * CUDA kernel launch,
    * Device-to-host memory copy
@@ -191,6 +220,18 @@ void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
   free(fm2);
   free(fm3);
 
+	// Recv ouput data from the each nodes
+  if (mpi_rank == 0){
+	  int offset = outputStreamSize*(num_to_gen/mpi_size);
+	  float* mpi_outputs = outputs + outputStreamSize * num_to_gen_per_node; 
+    for (int i = 1; i < mpi_size; i++){
+		  MPI_Irecv(mpi_ouputs + (i-1)*offset, offset, MPI_FLOAT, i, 0, MPI_COMM_WORLD, &request);
+		}
+  }else{
+	  int offset = outputStreamSize*(num_to_gen/mpi_size);
+		MPI_Isend(outputs, offset, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &request);
+    MPI_Wait(&request, &status);
+	}
 }
 
 void facegen_fin() {
