@@ -122,13 +122,10 @@ int main(int argc, char **argv) {
         
         for(int i = 1; i< mpi_size; i++){
             MPI_Send(&num_to_gen, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-            MPI_Send(network, NETWORK_SIZE_IN_BYTES / sizeof(float), MPI_FLOAT, i, 0, MPI_COMM_WORLD);
         }
     }else{
-        network = (float*)malloc(NETWORK_SIZE_IN_BYTES);
-        MPI_Recv(network, NETWORK_SIZE_IN_BYTES / sizeof(float), MPI_FLOAT, 0, 0, MPI_COMM_WORLD, NULL);
-
         MPI_Recv(&num_to_gen, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, NULL);
+        network = (float*)malloc(NETWORK_SIZE_IN_BYTES);
         inputs = (float*)malloc((num_to_gen / mpi_size) * 100 * sizeof(float));
         outputs = (float*)malloc((num_to_gen / mpi_size) * 64 * 64 * 3 *sizeof(float));
     }

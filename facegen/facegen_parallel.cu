@@ -182,12 +182,13 @@ void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
         int offset = inputStreamSize*(num_to_gen/mpi_size);
         float* mpi_inputs = inputs + inputStreamSize * num_to_gen_per_node; 
         for (int i = 1; i < mpi_size; i++){
-            MPI_Isend(mpi_inputs + (i-1)*offset, offset, MPI_FLOAT, i, 0, MPI_COMM_WORLD, &request);
+            MPI_Send(mpi_inputs + (i-1)*offset, offset, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+            MPI_Send(network, NETWORK_SIZE_IN_BYTES / sizeof(float), MPI_FLOAT, i, 0, MPI_COMM_WORLD);
         }
     }else{
         int offset = inputStreamSize*(num_to_gen/mpi_size);
-        MPI_Irecv(inputs, offset, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &request);
-        MPI_Wait(&request, &status);
+        MPI_Recv(inputs, offset, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, NULL);
+        MPI_Recv(network, NETWORK_SIZE_IN_BYTES / sizeof(float), MPI_FLOAT, 0, 0, MPI_COMM_WORLD, NULL);
     }
 
     // Send Network weight host to GPU
