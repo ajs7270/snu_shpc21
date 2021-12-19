@@ -225,7 +225,7 @@ void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
     for (int n = 0; n < num_to_gen_per_node; ++n) {
         int input_offset = n * inputStreamSize;
         int output_offset = n * outputStreamSize;
-        int blockSize = 128;
+        int blockSize = 32;
 
         int buffer_index = n % NUM_OF_BUFFER;
         float *input = gpu_inputs[buffer_index];
