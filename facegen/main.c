@@ -154,15 +154,15 @@ int main(int argc, char **argv) {
 
         write_outputs(argv[3], num_to_gen, outputs);
         write_image(argv[4], num_to_gen, outputs);
-
-        // finalize; does not count into elapsed time
-        printf("Finalizing..."); fflush(stdout);
-        facegen_fin();
-        free(network);
-        free(inputs);
-        free(outputs);
-        printf(" done!\n");
     }
+
+    // finalize; does not count into elapsed time
+    printf("Finalizing..."); fflush(stdout);
+    facegen_fin();
+    free(network);
+    free(inputs);
+    free(outputs);
+    printf(" done!\n");
     MPI_Barrier(MPI_COMM_WORLD);
     return 0;
 }
