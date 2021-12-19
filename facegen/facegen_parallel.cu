@@ -50,65 +50,76 @@ static float* gpu_outputs[NUM_OF_BUFFER];
 static float* gpu_network;
 static float* gpu_fm[NUM_OF_FEATURE_MAP];
 
-static void proj(float *in, float *out, float *weight, float *bias, int C, int K) {
-  for (int k = 0; k < K; ++k) {
-    float s = 0;
-    for (int c = 0; c < C; ++c) {
-      s += in[c] * weight[c * K + k];
-    }
-    s += bias[k];
-    out[k] = s;
-  }
+__global__ void proj(float *in, float *out, float *weight, float *bias, int C, int K) {
+
+	int k = blockDim.x * blockIdx.x + threadIdx.x;
+	if (k >= K) return;
+	
+	float s = 0;
+	for (int c = 0; c < C; ++c) {
+		s += in[c] * weight[c * K + k];
+	}
+	s += bias[k];
+	out[k] = s;
 }
 
-static void batch_norm(float *inout, float *beta, float *gamma, float *mean, float *var, int HW, int C) {
-  for (int hw = 0; hw < HW; ++hw) {
-    for (int c = 0; c < C; ++c) {
-      float scaled_gamma = gamma[c] / sqrtf(var[c] + 1e-5);
-      inout[hw * C + c] = scaled_gamma * inout[hw * C + c] + (beta[c] - scaled_gamma * mean[c]);
-    }
-  }
+__global__ void batch_norm(float *inout, float *beta, float *gamma, float *mean, float *var, int HW, int C) {
+	int hw = blockDim.x * blockIdx.x + threadIdx.x;
+	if (hw >= HW) return;
+
+	for (int c = 0; c < C; ++c) {
+		float scaled_gamma = gamma[c] / sqrtf(var[c] + 1e-5);
+		inout[hw * C + c] = scaled_gamma * inout[hw * C + c] + (beta[c] - scaled_gamma * mean[c]);
+	}
 }
 
-static void relu(float *inout, int HWC) {
-  for (int hwc = 0; hwc < HWC; ++hwc) {
-    inout[hwc] = fmaxf(inout[hwc], 0);
-  }
+__global__ void relu(float *inout, int HWC) {
+	int hwc = blockDim.x * blockIdx.x + threadIdx.x;
+	if (hwc >= HWC) return;
+
+  inout[hwc] = fmaxf(inout[hwc], 0);
 }
 
-static void tconv(float *in, float *out, float *weight, float *bias, int H_IN, int W_IN, int C, int K) {
-  int H_OUT = H_IN * 2, W_OUT = W_IN * 2;
-  for (int h_out = 0; h_out < H_OUT; ++h_out) {
-    for (int w_out = 0; w_out < W_OUT; ++w_out) {
-      for (int k = 0; k < K; ++k) {
-        float ss = 0;
-        for (int r = 0; r < 5; ++r) {
-          for (int s = 0; s < 5; ++s) {
-            // top and left side has padding 3, bottom and right side has padding 2
-            // so subtract 3
-            int h_in = h_out - 3 + r;
-            int w_in = w_out - 3 + s;
-            // stride is 2, so check coordinates fall into input element or empty space
-            if (h_in % 2 == 0 && w_in % 2 == 0) {
-              h_in /= 2;
-              w_in /= 2;
-              // boundary check
-              if (0 <= h_in && h_in < H_IN && 0 <= w_in && w_in < W_IN) {
-                for (int c = 0; c < C; ++c) {
-                  // filter is stored in reverse; so use [4 - r][4 - s] instead of [r][s]
-                  // ss += in[h_in][w_in][c] * weight[4 - r][4 - s][k][c];
-                  ss += in[(h_in * W_IN + w_in) * C + c] * weight[(((4 - r) * 5 + (4 - s)) * K + k) * C + c];
-                }
-              }
-            }
-          }
-        }
-        ss += bias[k];
-        // out[h_out][w_out][k] = ss;
-        out[(h_out * W_OUT + w_out) * K + k] = ss;
-      }
-    }
-  }
+__global__ void tconv(float *in, float *out, float *weight, float *bias, int H_IN, int W_IN, int C, int K) {
+	int k = blockDim.x * blockIdx.x + threadIdx.x;
+	if (k >= K) return;
+
+	int H_OUT = H_IN * 2, W_OUT = W_IN * 2;
+	for (int h_out = 0; h_out < H_OUT; ++h_out) {
+		for (int w_out = 0; w_out < W_OUT; ++w_out) {
+			float ss = 0;
+			for (int r = 0; r < 5; ++r) {
+				for (int s = 0; s < 5; ++s) {
+					// top and left side has padding 3, bottom and right side has padding 2
+					// so subtract 3
+					int h_in = h_out - 3 + r;
+					int w_in = w_out - 3 + s;
+					// stride is 2, so check coordinates fall into input element or empty space
+					if (h_in % 2 == 0 && w_in % 2 == 0) {
+						h_in /= 2;
+						w_in /= 2;
+						// boundary check
+						if (0 <= h_in && h_in < H_IN && 0 <= w_in && w_in < W_IN) {
+							for (int c = 0; c < C; ++c) {
+								// filter is stored in reverse; so use [4 - r][4 - s] instead of [r][s]
+								// ss += in[h_in][w_in][c] * weight[4 - r][4 - s][k][c];
+								ss += in[(h_in * W_IN + w_in) * C + c] * weight[(((4 - r) * 5 + (4 - s)) * K + k) * C + c];
+							}
+						}
+					}
+				}
+			}
+			ss += bias[k];
+			// out[h_out][w_out][k] = ss;
+			out[(h_out * W_OUT + w_out) * K + k] = ss;
+		}
+	}
+}
+
+__global__ void tanh_layer(float *inout, int HWC) {
+	int hwc = blockDim.x * blockIdx.x + threadIdx.x;
+	if (hwc >= HWC) return;
+  inout[hwc] = tanhf(inout[hwc]);
 }
 
 void facegen_init() {
