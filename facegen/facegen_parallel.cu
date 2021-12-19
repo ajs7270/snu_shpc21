@@ -114,6 +114,10 @@ static void tconv(float *in, float *out, float *weight, float *bias, int H_IN, i
 void facegen_init() {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+	
+  // for non-blocking mpi send, receive
+  nstatus = (MPI_Status *)malloc(mpi_size * sizeof(MPI_Status));
+  nrequest = (MPI_Request *)malloc(mpi_size * sizeof(MPI_Request));
 
 	num_to_gen_per_node = num_to_gen / mpi_size;
 
@@ -225,8 +229,11 @@ void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
 	  int offset = outputStreamSize*(num_to_gen/mpi_size);
 	  float* mpi_outputs = outputs + outputStreamSize * num_to_gen_per_node; 
     for (int i = 1; i < mpi_size; i++){
-		  MPI_Irecv(mpi_ouputs + (i-1)*offset, offset, MPI_FLOAT, i, 0, MPI_COMM_WORLD, &request);
-		}
+		  MPI_Irecv(mpi_ouputs + (i-1)*offset, offset, MPI_FLOAT, i, 0, MPI_COMM_WORLD, &nrequest[i]);
+		}    
+		for (int i = 1; i < mpi_size; i++){
+      MPI_Wait(&nrequest[i], &nstatus[i]);
+    }
   }else{
 	  int offset = outputStreamSize*(num_to_gen/mpi_size);
 		MPI_Isend(outputs, offset, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &request);
