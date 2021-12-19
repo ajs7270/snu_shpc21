@@ -122,6 +122,7 @@ __global__ void tanh_layer(float *inout, int HWC) {
   inout[hwc] = tanhf(inout[hwc]);
 }
 
+
 void facegen_init() {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -175,72 +176,98 @@ void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
    * CUDA kernel launch,
    * Device-to-host memory copy
    */
-  float *proj_w = network; network += 100 * 8192;
-  float *proj_b = network; network += 8192;
-  float *bn0_beta = network; network += 512;
-  float *bn0_gamma = network; network += 512;
-  float *bn0_mean = network; network += 512;
-  float *bn0_var = network; network += 512;
-  float *tconv1_w = network; network += 5 * 5 * 256 * 512;
-  float *tconv1_b = network; network += 256;
-  float *bn1_beta = network; network += 256;
-  float *bn1_gamma = network; network += 256;
-  float *bn1_mean = network; network += 256;
-  float *bn1_var = network; network += 256;
-  float *tconv2_w = network; network += 5 * 5 * 128 * 256;
-  float *tconv2_b = network; network += 128;
-  float *bn2_beta = network; network += 128;
-  float *bn2_gamma = network; network += 128;
-  float *bn2_mean = network; network += 128;
-  float *bn2_var = network; network += 128;
-  float *tconv3_w = network; network += 5 * 5 * 64 * 128;
-  float *tconv3_b = network; network += 64;
-  float *bn3_beta = network; network += 64;
-  float *bn3_gamma = network; network += 64;
-  float *bn3_mean = network; network += 64;
-  float *bn3_var = network; network += 64;
-  float *tconv4_w = network; network += 5 * 5 * 3 * 64;
-  float *tconv4_b = network; network += 3;
 
-  // intermediate buffer for feature maps
-  float *fm0 = (float*)malloc(4 * 4 * 512 * sizeof(float));
-  float *fm1 = (float*)malloc(8 * 8 * 256 * sizeof(float));
-  float *fm2 = (float*)malloc(16 * 16 * 128 * sizeof(float));
-  float *fm3 = (float*)malloc(32 * 32 * 64 * sizeof(float));
+	// Send noise data to the each nodes
+  if (mpi_rank == 0){
+	  int offset = inputStreamSize*(num_to_gen/mpi_size);
+	  float* mpi_inputs = inputs + inputStreamSize * num_to_gen_per_node; 
+    for (int i = 1; i < mpi_size; i++){
+		  MPI_Isend(mpi_inputs + (i-1)*offset, offset, MPI_FLOAT, i, 0, MPI_COMM_WORLD, &request);
+		}
+  }else{
+	  int offset = inputStreamSize*(num_to_gen/mpi_size);
+		MPI_Irecv(inputs, offset, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &request);
+    MPI_Wait(&request, &status);
+	}
+
+	// Send Network weight host to GPU
+  CHECK_CUDA(cudaMemcpy(gpu_network, network, NETWORK_SIZE_IN_BYTES, cudaMemcpyHostToDevice));
+
+	float *proj_w = gpu_network; gpu_network += 100 * 8192;
+  float *proj_b = gpu_network; gpu_network += 8192;
+  float *bn0_beta = gpu_network; gpu_network += 512;
+  float *bn0_gamma = gpu_network; gpu_network += 512;
+  float *bn0_mean = gpu_network; gpu_network += 512;
+  float *bn0_var = gpu_network; gpu_network += 512;
+  float *tconv1_w = gpu_network; gpu_network += 5 * 5 * 256 * 512;
+  float *tconv1_b = gpu_network; gpu_network += 256;
+  float *bn1_beta = gpu_network; gpu_network += 256;
+  float *bn1_gamma = gpu_network; gpu_network += 256;
+  float *bn1_mean = gpu_network; gpu_network += 256;
+  float *bn1_var = gpu_network; gpu_network += 256;
+  float *tconv2_w = gpu_network; gpu_network += 5 * 5 * 128 * 256;
+  float *tconv2_b = gpu_network; gpu_network += 128;
+  float *bn2_beta = gpu_network; gpu_network += 128;
+  float *bn2_gamma = gpu_network; gpu_network += 128;
+  float *bn2_mean = gpu_network; gpu_network += 128;
+  float *bn2_var = gpu_network; gpu_network += 128;
+  float *tconv3_w = gpu_network; gpu_network += 5 * 5 * 64 * 128;
+  float *tconv3_b = gpu_network; gpu_network += 64;
+  float *bn3_beta = gpu_network; gpu_network += 64;
+  float *bn3_gamma = gpu_network; gpu_network += 64;
+  float *bn3_mean = gpu_network; gpu_network += 64;
+  float *bn3_var = gpu_network; gpu_network += 64;
+  float *tconv4_w = gpu_network; gpu_network += 5 * 5 * 3 * 64;
+  float *tconv4_b = gpu_network; gpu_network += 3;
 
   // run network for each face
-  for (int n = 0; n < num_to_gen; ++n) {
-    float *input = inputs + n * 100;
-    float *output = outputs + n * 64 * 64 * 3;
-    proj(input, fm0, proj_w, proj_b, 100, 8192);
+  for (int n = 0; n < num_to_gen_per_node; ++n) {
+    int input_offset = n * inputStreamSize;
+    int output_offset = n * outputStreamSize;
+    int blockSize = 128;
+
+		int buffer_index = n % NUM_OF_BUFFER;
+		float *input = gpu_inputs[buffer_index];
+		float *output = gpu_outputs[buffer_index];
+
+    dim3 blockDim(blockSize, 1, 1);
+    dim3 gridDim(inputStreamSize/blockSize, 1, 1);
+
+    // Noise input is currently on CPU. Send them to GPU.
+    CHECK_CUDA(cudaMemcpyAsync(gpu_inputs[buffer_index], &inputs[input_offset], 
+					inputStreamBytes, cudaMemcpyHostToDevice, stream[buffer_index]));
+
+    proj<<<gridDim, blockDim, 0, stream[buffer_index]>>>(input, gpu_fm[0], proj_w, proj_b, 100, 8192);
     // implicit layout change here; (8192,) -> (4, 4, 512)
-    batch_norm(fm0, bn0_beta, bn0_gamma, bn0_mean, bn0_var, 4 * 4, 512);
-    relu(fm0, 4 * 4 * 512);
-    tconv(fm0, fm1, tconv1_w, tconv1_b, 4, 4, 512, 256);
-    batch_norm(fm1, bn1_beta, bn1_gamma, bn1_mean, bn1_var, 8 * 8, 256);
-    relu(fm1, 8 * 8 * 256);
-    tconv(fm1, fm2, tconv2_w, tconv2_b, 8, 8, 256, 128);
-    batch_norm(fm2, bn2_beta, bn2_gamma, bn2_mean, bn2_var, 16 * 16, 128);
-    relu(fm2, 16 * 16 * 128);
-    tconv(fm2, fm3, tconv3_w, tconv3_b, 16, 16, 128, 64);
-    batch_norm(fm3, bn3_beta, bn3_gamma, bn3_mean, bn3_var, 32 * 32, 64);
-    relu(fm3, 32 * 32 * 64);
-    tconv(fm3, output, tconv4_w, tconv4_b, 32, 32, 64, 3);
-    tanh_layer(output, 64 * 64 * 3);
+    batch_norm<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[0], bn0_beta, bn0_gamma, bn0_mean, bn0_var, 4 * 4, 512);
+    relu<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[0], 4 * 4 * 512);
+    tconv<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[0], gpu_fm[1], tconv1_w, tconv1_b, 4, 4, 512, 256);
+    batch_norm<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[1], bn1_beta, bn1_gamma, bn1_mean, bn1_var, 8 * 8, 256);
+    relu<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[1], 8 * 8 * 256);
+    tconv<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[1], gpu_fm[2], tconv2_w, tconv2_b, 8, 8, 256, 128);
+    batch_norm<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[2], bn2_beta, bn2_gamma, bn2_mean, bn2_var, 16 * 16, 128);
+    relu<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[2], 16 * 16 * 128);
+    tconv<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[2], gpu_fm[3], tconv3_w, tconv3_b, 16, 16, 128, 64);
+    batch_norm<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[3], bn3_beta, bn3_gamma, bn3_mean, bn3_var, 32 * 32, 64);
+    relu<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[3], 32 * 32 * 64);
+    tconv<<<gridDim, blockDim, 0, stream[buffer_index]>>>(gpu_fm[3],output, tconv4_w, tconv4_b, 32, 32, 64, 3);
+    tanh_layer<<<gridDim, blockDim, 0, stream[buffer_index]>>>(output, 64 * 64 * 3);
+
+		// Image output is currently on GPU. Send them to CPU.
+		CHECK_CUDA(cudaMemcpyAsync(&outputs[output_offset], gpu_outputs[n%NUM_OF_BUFFER],
+				 	outputStreamBytes, cudaMemcpyDeviceToHost, stream[n%NUM_OF_BUFFER]));
   }
 
-  // free resources
-  free(fm0);
-  free(fm1);
-  free(fm2);
-  free(fm3);
+	for(int i = 0; i < NUM_OF_STREAM; i++){
+    CHECK_CUDA(cudaStreamSynchronize(stream[i]));
+  }
 
 	// Recv ouput data from the each nodes
   if (mpi_rank == 0){
 	  int offset = outputStreamSize*(num_to_gen/mpi_size);
 	  float* mpi_outputs = outputs + outputStreamSize * num_to_gen_per_node; 
     for (int i = 1; i < mpi_size; i++){
-		  MPI_Irecv(mpi_ouputs + (i-1)*offset, offset, MPI_FLOAT, i, 0, MPI_COMM_WORLD, &nrequest[i]);
+		  MPI_Irecv(mpi_outputs + (i-1)*offset, offset, MPI_FLOAT, i, 0, MPI_COMM_WORLD, &nrequest[i]);
 		}    
 		for (int i = 1; i < mpi_size; i++){
       MPI_Wait(&nrequest[i], &nstatus[i]);
@@ -254,8 +281,6 @@ void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
 
 void facegen_fin() {
   /*
-   * TODO
    * Finalize required CUDA objects. For example,
-   * cudaFree(...)
    */
 }
