@@ -229,15 +229,14 @@ void facegen(int num_to_gen, float *network, float *inputs, float *outputs) {
     for (int n = 0; n < num_to_gen_per_node; ++n) {
         int input_offset = n * inputStreamSize;
         int output_offset = n * outputStreamSize;
-        int blockSize = 32;
 
         int buffer_index = n % NUM_OF_BUFFER;
         float *input = gpu_inputs[buffer_index];
         float *output = gpu_outputs[buffer_index];
 
-        dim3 blockDim(blockSize, 1, 1);
-        dim3 gridDim(NETWORK_SIZE_IN_BYTES/blockSize, 1, 1);
-
+        dim3 blockDim(32, 1, 1);
+        dim3 gridDim(8192, 1, 1);
+       
         // Noise input is currently on CPU. Send them to GPU.
         CHECK_CUDA(cudaMemcpyAsync(gpu_inputs[buffer_index], &inputs[input_offset], 
                     inputStreamBytes, cudaMemcpyHostToDevice, stream[buffer_index]));
