@@ -137,6 +137,7 @@ int main(int argc, char **argv) {
     facegen_init();
     printf(" done!\n");
 
+    MPI_Barrier(MPI_COMM_WORLD);
     if (mpi_rank == 0 ) {
         // main calculation
         printf("Calculating..."); fflush(stdout);
@@ -153,13 +154,14 @@ int main(int argc, char **argv) {
         write_image(argv[4], num_to_gen, outputs);
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
     // finalize; does not count into elapsed time
-    printf("Finalizing..."); fflush(stdout);
+    printf("Finalizing...node(%d)\n", mpi_rank); fflush(stdout);
     facegen_fin();
     free(network);
     free(inputs);
     free(outputs);
-    printf(" done!\n");
+    printf(" done! node(%d)\n", mpi_rank);
     MPI_Barrier(MPI_COMM_WORLD);
     return 0;
 }
