@@ -84,6 +84,17 @@ __global__ void tconv(float *in, float *out, float *weight, float *bias, int H_I
     int k = blockDim.x * blockIdx.x + threadIdx.x;
     if (k >= K) return;
 
+    // using local memory
+    float local_weight[5 * 5 * 512];
+    for(int r = 0; r < 5; r++){
+         for(int s = 0; s < 5; s++){
+             for(int c = 0; c < C; c++){
+                local_weight[(r*5+s) * C + c] = weight[((r * 5 + s) * K + k) * C + c];
+             }
+         }
+     }
+
+
     int H_OUT = H_IN * 2, W_OUT = W_IN * 2;
     for (int h_out = 0; h_out < H_OUT; ++h_out) {
         for (int w_out = 0; w_out < W_OUT; ++w_out) {
@@ -103,7 +114,7 @@ __global__ void tconv(float *in, float *out, float *weight, float *bias, int H_I
                             for (int c = 0; c < C; ++c) {
                                 // filter is stored in reverse; so use [4 - r][4 - s] instead of [r][s]
                                 // ss += in[h_in][w_in][c] * weight[4 - r][4 - s][k][c];
-                                ss += in[(h_in * W_IN + w_in) * C + c] * weight[(((4 - r) * 5 + (4 - s)) * K + k) * C + c];
+                                ss += in[(h_in * W_IN + w_in) * C + c] * local_weight[((4 - r) * 5 + (4 - s)) * C + c];
                             }
                         }
                     }
